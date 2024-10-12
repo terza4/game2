@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Vladimir Dresevic">
+    <title>Phaser Coin Collector</title>
+    <style>
+        body {
+            margin: 0px;
+            padding: 0px;
+            
+        }
+        
+        #game-container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container"></div>
+    <script src="js/phaser.min.js"></script>
+    <script>
+        let config = {
+            type: Phaser.AUTO,
+            scale: {
+                mode: Phaser.Scale.FIT,
+                parent: 'game-container',
+                width: 1280,
+                height: 720
+            },
+            parent: 'game-container',
+            width: 1280,
+            height: 720,
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: {
+                        y: 300
+                    },
+                    debug: false
+                }
+            },
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            }
+        };
+
+        var game = new Phaser.Game(config);
+
+        function preload() {
+
+            this.load.image('background', 'img/background.png');
+            this.load.image('ground', 'img/ground.png');
+            this.load.image('coin', 'img/coin.png');
+            this.load.spritesheet('runner',
+                'img/runner.png', {
+                    frameWidth: 100,
+                    frameHeight: 130
+                }
+            );
+
+            this.load.audio('fail', 'sound/fail.mp3');
+            this.load.audio('collect', 'sound/collect.mp3');
+        }
+
+        let cursors;
+        let runner;
+        let coins;
+        let scoreText;
+        let score = 0;
+
+        let collectSound;
+        let failSound;
+
+        function create() {
+
+            this.add.image(640, 360, 'background');
+
+            let ground = this.physics.add.staticImage(640, 665, 'ground');
+
+            runner = this.physics.add.sprite(100, 450, 'runner');
+            runner.setBounce(0.2);
+            runner.setCollideWorldBounds(true);
+
+
+            this.physics.add.collider(runner, ground);
+            ground.body.setOffset(0, 60);
+            runner.body.setGravityY(1000);
+
+            this.anims.create({
+                key: 'stand',
+                frames: this.anims.generateFrameNumbers('runner', {
+                    start: 0,
+                    end: 1
+                }),
+                frameRate: 10,
+                repeat: -1
+            });
+
+            this.anims.create({
+                key: 'run',
+                frames: this.anims.generateFrameNumbers('runner', {
+                    start: 2,
+                    end: 6
+                }),
+                frameRate: 10,
+                repeat: -1
+            });
+
+            cursors = this.input.keyboard.createCursorKeys();
+
+
+            coins = this.physics.add.group();
+            this.physics.add.collider(coins, ground, gameOver, null, this);
+            this.physics.add.overlap(runner, coins, collectCoin, null, this);
+
+            releaseCoin(this);
+
+
+            scoreText = this.add.text(16, 16, 'score: 0', {
+                fontSize: '32px',
+                fill: 'white'
+            });
+
+
+            collectSound = game.sound.add("collect");
+            failSound = game.sound.add("fail");
+
+        }
+
+        function collectCoin(runner, coin) {
+            collectSound.play();
+            score = score + 10;
+            scoreText.setText('Score: ' + score);
+            coin.disableBody(true, true);
+        }
+
+        let accelerationY = -250;
+
+        function releaseCoin(scene) {
+
+            let x = Phaser.Math.Between(50, 1230);
+
+            let coin = coins.create(x, -100, 'coin');
+            runner.setBounce(0.2);
+            coin.setCollideWorldBounds(true);
+            coin.setVelocity(Phaser.Math.Between(-60, 60), 0);
+
+            coin.setAccelerationY(accelerationY);
+            accelerationY = accelerationY + 5;
+
+
+            if (!isGameOver) {
+                let delay = Phaser.Math.Between(800, 3000)
+                let timer = scene.time.delayedCall(delay, releaseCoin, [scene], this);
+            }
+        }
+
+        let isGameOver = false;
+
+        function gameOver() {
+            failSound.play();
+            this.physics.pause();
+            runner.anims.play('stand');
+            isGameOver = true;
+        }
+
+        function update() {
+
+            if (isGameOver) {
+                return;
+            }
+
+            if (cursors.left.isDown) {
+                runner.setVelocityX(-400);
+                runner.flipX = true;
+                runner.anims.play('run', true);
+
+            } else if (cursors.right.isDown) {
+                runner.setVelocityX(400);
+                runner.flipX = false;
+                runner.anims.play('run', true);
+            } else {
+                runner.setVelocityX(0);
+                runner.anims.play('stand', true);
+            }
+
+            if (cursors.up.isDown) {
+
+                if (runner.body.touching.down) {
+                    runner.setVelocityY(-800);
+                }
+            }
+
+            if (!runner.body.touching.down) {
+                runner.setFrame(7);
+            }
+
+            if (runner.body.velocity.y > 0) {
+                runner.setFrame(8);
+            }
+
+        }
+    </script>
+</body>
+
+</html>
